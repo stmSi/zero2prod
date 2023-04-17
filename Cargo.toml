@@ -17,6 +17,12 @@ serde = { version = "1", features = ["derive"] }
 tokio = {version = "1", features = ["macros", "rt-multi-thread"]}
 config = "0.11"
 chrono = "0.4.24"
+env_logger = "0.9.3"
+log = "0.4.17"
+tracing = { version = "0.1.37", features = ["log"] }
+unicode-segmentation = "1.10.1"
+claim = "0.5.0"
+validator = "0.16.0"
 
 [dependencies.uuid]
 version = "1.3.0"
@@ -35,8 +41,12 @@ features = [
   "postgres",
   "uuid",
   "chrono",
-  "migrate"
+  "migrate",
+  "offline",
 ]
 
 [dev-dependencies]
+fake = "~2.3"
+quickcheck = "0.9.2"
+quickcheck_macros = "0.9.1"
 reqwest = "0.11"

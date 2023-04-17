@@ -1,12 +1,14 @@
 use std::net::TcpListener;
 use std::process::exit;
 
+use env_logger::Env;
 use sqlx::PgPool;
 use zero2prod::configuration::get_configuration;
 use zero2prod::startup::run;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     // Panic if we can't read configuration
     let configuration = match get_configuration() {
         Ok(config) => config,
@@ -18,7 +20,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let connection_string = configuration.database.connection_string();
-    let connection_pool = match PgPool::connect(&connection_string).await {
+    let connection_pool = match PgPool::connect_lazy(&connection_string) {
         Ok(conn) => conn,
         Err(err) => {
             eprintln!("Error DB '{}': {}", connection_string, err);
@@ -26,7 +28,10 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    let address = format!("127.0.0.1:{}", configuration.applicaton_port);
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
     let listener = match TcpListener::bind(&address) {
         Ok(listener) => listener,
         Err(err) => {
@@ -34,5 +39,9 @@ async fn main() -> std::io::Result<()> {
             exit(1);
         }
     };
+    println!(
+        "Server Running at: http://{}:{}",
+        configuration.application.host, configuration.application.port
+    );
     run(listener, connection_pool)?.await
 }

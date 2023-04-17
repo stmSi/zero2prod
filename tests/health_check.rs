@@ -1,12 +1,16 @@
-use std::{net::TcpListener};
+use std::net::TcpListener;
 
 use reqwest;
-use sqlx::{PgPool, PgConnection, Connection, Executor};
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
-use zero2prod::{configuration::{get_configuration, DatabaseSettings}, startup};
+use zero2prod::{
+    configuration::{get_configuration, DatabaseSettings, Setting},
+    startup,
+};
 
-pub struct TestApp{
+pub struct TestApp {
     pub address: String,
+    pub configuration: Setting,
     pub db_pool: PgPool,
 }
 
@@ -25,6 +29,7 @@ async fn spawn_app() -> TestApp {
 
     TestApp {
         address,
+        configuration,
         db_pool: connection_pool,
     }
 }
@@ -49,9 +54,7 @@ pub async fn confgiure_database(config: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to migrate the database");
 
-
     connection_pool
-
 }
 
 #[tokio::test]
@@ -132,4 +135,35 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
         );
     }
 }
+#[tokio::test]
+async fn subscribe_returns_a_200_when_fields_are_present_but_empty() {
+    // Arrange
+    let app = spawn_app().await;
 
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=Ursula&email=", "empty email"),
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
+    ];
+
+    for (invalid_body, description) in test_cases {
+        // Act
+        let response = client
+            .post(format!("{}/subscriptions", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        // Assert
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            // Additional customized error message on test failure
+            "The API did not return a 400 OK when the payload was {}.",
+            description
+        );
+    }
+}
